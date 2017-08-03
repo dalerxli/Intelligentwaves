@@ -1,13 +1,28 @@
 
-class square():
+class squares():
 
-	def __init__(self, num_ind, pos, neighbor):
-		self.num_ind = num_ind
-		self.pos = pos
-		self.left = neighbor[0]
-		self.right = neighbor[1]
-		self.down = neighbor[2]
-		self.up = neighbor[3]
+	def __init__(self, void_list, row, col):
+		self.map = void_list
+		self.map_xlength = len(self.map)
+		self.map_ylength = len(self.map[0])
+		self.is_filled = void_list[row][col]
+		if row == 0:
+			self.left = 0
+		else:
+			self.left = void_list[row-1][col]
+		if row == self.map_xlength-1:
+			self.right = 0
+		else:
+			self.right = void_list[row+1][col]
+		if col == 0:
+			self.down = 0
+		else:
+			self.down = void_list[row][col-1]
+		if col == self.map_ylength-1:
+			self.up = 0
+		else:
+			self.up = void_list[row][col+1]
+
 
 
 def createMesh(void_list):
@@ -48,20 +63,80 @@ def cellToNodes(void_list):
 	y_nodes = 2*y_sqrs+1
 	cell_to_node = []
 	y_zero = 0
-	for row in range(len(void_list)):
-		for col in range(len(void_list[0])):
-			print(row, col)
+	for row in range(x_sqrs):
+		for col in range(y_sqrs):
 			set_of_nodes = [2*col+1, 2*col+2, 2*col+3,
 							y_nodes+1+2*col, y_nodes+2+2*col, y_nodes+3+2*col,
-							y_nodes+1+2*col, 2*y_nodes+2+2*col, 2*y_nodes+3+2*col]
+							2*y_nodes+1+2*col, 2*y_nodes+2+2*col, 2*y_nodes+3+2*col]
 			# conut y_zero
 			set_of_nodes = [i + y_zero for i in set_of_nodes]
 			cell_to_node.append(set_of_nodes)
 			print(set_of_nodes)
 		y_zero += 2*y_nodes
 
+	# create squares() to manipulate positions of mesh
+	square_list = []
+	for row in range(x_sqrs):
+		one_row = []
+		for col in range(y_sqrs):
+			unit = squares(void_list, row, col)
+			one_row.append(unit)
+		square_list.append(one_row)
+	print(square_list)
 
-	return cell_to_node
+
+	node_to_delete = []
+
+	for row in range(x_sqrs):
+		for col in range(y_sqrs):
+			cell_num = row*y_sqrs + col
+			print(cell_num)
+			if square_list[row][col].is_filled == 0:
+				# void mesh, delete center node first
+				node_to_delete.append(cell_to_node[cell_num][4])
+				# detect edge elements
+				if square_list[row][col].left == 0:
+					node_to_delete.append(cell_to_node[cell_num][1])
+				if square_list[row][col].right == 0:
+					node_to_delete.append(cell_to_node[cell_num][7])
+				if square_list[row][col].up == 0:
+					node_to_delete.append(cell_to_node[cell_num][5])
+				if square_list[row][col].down == 0:
+					node_to_delete.append(cell_to_node[cell_num][3])
+				# detect corner elements
+				if square_list[row][col].left == 0 and square_list[row][col].down == 0:
+					node_to_delete.append(cell_to_node[cell_num][0])
+				if square_list[row][col].right == 0 and square_list[row][col].down == 0:
+					node_to_delete.append(cell_to_node[cell_num][6])
+				if square_list[row][col].left == 0 and square_list[row][col].up == 0:
+					node_to_delete.append(cell_to_node[cell_num][2])
+				if square_list[row][col].right == 0 and square_list[row][col].up == 0:
+					node_to_delete.append(cell_to_node[cell_num][8])
+
+	node_to_delete = list(set(node_to_delete)) # delete repeted elements
+	node_to_delete.sort()				
+	# print(node_to_delete)
+	# print(cell_to_node)
+	truncate_cell_to_node = []
+
+	for row in range(x_sqrs):
+		for col in range(y_sqrs):
+			cell_num = row*y_sqrs + col
+
+			if void_list[row][col] == 0:
+				truncate_cell_to_node.append([0 for i in range(9)])
+			else:
+				unit = []
+				for i in range(9):
+					num_to_change = cell_to_node[cell_num][i] 
+					num_less_than_n2c = len([j for j in node_to_delete if j < num_to_change])
+					print(num_to_change, num_less_than_n2c)
+					unit.append(num_to_change - num_less_than_n2c)
+				truncate_cell_to_node.append(unit)
+	print(truncate_cell_to_node)
+
+
+	return cell_to_node, truncate_cell_to_node
 
 def edgeToCell(void_list):
 	x_sqrs = len(void_list)
@@ -193,6 +268,8 @@ if __name__ == '__main__':
 	printMesh(void_list)
 	a = nodePosition(void_list, 3,3)
 	print((a))
-	cellToNodes(void_list)
+	print(cellToNodes(void_list))
 	# edgeToCell(void_list)
 	cellToEdge(void_list)
+	sq = squares(void_list, 2, 2)
+	print(sq.left, sq.right, sq.up, sq.down)

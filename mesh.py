@@ -76,14 +76,22 @@ class Mesh():
 		self.__Ncel2indx, self.__Ncel2indy = self.__xyIndex()
 		self.__square_list = self.__constructSquareList()
 
-		# self.node_position_list = self.nodePosition()
-		self.cell_to_node, self.num_nodes = self.cellToNodes()
-		self.cell_to_edge, self.num_edges = self.cellToEdge()
+		self.cell_to_node, self.num_nodes, self.node_to_delete = self.cellToNodes()
+		self.cell_to_edge, self.num_edges, self.edge_to_delete = self.cellToEdge()
 		self.edge_to_cell = self.edgeToCell()
+		self.node_position_list = self.nodePosition()
+
+		self.pcted = self.PCTED()
+		self.pctnd = self.PCTND()
+		self.petcd = self.PETCD()
+		self.node_list = self.NODELIST()
+
+		assert len(self.pcted) == len(self.pctnd)
+		self.num_cells = len(self.pcted)
 
 
 	def __constructSquareList(self):
-
+		''' construct the list of squares for position judgement of nodes, edges and cells'''
 		square_list = []
 		cell_count = 1
 		for row in range(self.num_cell_x):
@@ -104,6 +112,23 @@ class Mesh():
 		return square_list
 
 
+	def __xyIndex(self):
+		''' inner function: change index reference for compatible with matlab code'''
+		countx = 0
+		county = 0
+		Ncel2indx = []
+		Ncel2indy = []
+		for xcell in range(self.num_cell_x):
+			countx += 1
+			for ycell in range(self.num_cell_y):
+				county += 1
+				Ncel2indx.append(countx)
+				Ncel2indy.append(county)
+				if county >= self.num_cell_y:
+					county = 0
+		return Ncel2indx, Ncel2indy
+
+
 	def cellToNodes(self):
 		''' construct the cell_to_node list, i.e. pctnd'''
 
@@ -120,7 +145,7 @@ class Mesh():
 				# conut y_zero
 				set_of_nodes = [i + y_base for i in set_of_nodes]
 				cell_to_node.append(set_of_nodes)
-				print(set_of_nodes)
+				# print(set_of_nodes)
 			y_base += 2*self.num_node_y
 
 		# find out nodes for deleting
@@ -153,7 +178,8 @@ class Mesh():
 						node_to_delete.append(cell_to_node[cell_num][8])
 
 		node_to_delete = list(set(node_to_delete)) # delete repeted elements
-		node_to_delete.sort()	
+		node_to_delete.sort()
+		# print(node_to_delete)	
 
 		# calculate total node number
 		num_nodes = self.num_node_x * self.num_node_y - len(node_to_delete)
@@ -179,23 +205,7 @@ class Mesh():
 		cell_to_node_full = cell_to_node
 		cell_to_node = truncate_cell_to_node
 		# print(cell_to_node)
-		return cell_to_node, num_nodes
-
-	def __xyIndex(self):
-		''' inner function: change index reference for compatible with matlab code'''
-		countx = 0
-		county = 0
-		Ncel2indx = []
-		Ncel2indy = []
-		for xcell in range(self.num_cell_x):
-			countx += 1
-			for ycell in range(self.num_cell_y):
-				county += 1
-				Ncel2indx.append(countx)
-				Ncel2indy.append(county)
-				if county >= self.num_cell_y:
-					county = 0
-		return Ncel2indx, Ncel2indy
+		return cell_to_node, num_nodes, node_to_delete
 
 
 	def cellToEdge(self):
@@ -277,7 +287,7 @@ class Mesh():
 		cell_to_edge = truncate_cell_to_edge
 		# print(cell_to_edge)
 
-		return cell_to_edge, num_edge
+		return cell_to_edge, num_edge, edge_to_delete
 
 	def edgeToCell(self):
 		''' construct the edge_to_cell list, i.e. petcd'''
@@ -288,7 +298,6 @@ class Mesh():
 
 		edge_to_cell = []
 		for ncell in range(self.num_cell_x * self.num_cell_y):
-			print(ncell)
 			if self.__Ncel2indx[ncell] == 1:
 				if self.__Ncel2indy[ncell] == 1:
 					edge_to_cell.append([ncell, -1])
@@ -332,21 +341,18 @@ class Mesh():
 				# unit = squares(void_list, row, col)
 				self.__square_list[row][col].set_edge(self.cell_to_edge[cell_num])
 				if self.__square_list[row][col].is_filled:
-					print(cell_count)
+					# print(cell_count)
 					self.__square_list[row][col].set_cell_index(cell_count)
 					cell_count += 1
 
 		# search each edge and judge if it is the edge to some cell, add the cell to the edge_dict dictionary
 		edge_dict = {}
-		print(self.__square_list[0][1].edges) 
-		print(self.num_edges)
 		for edge in range(1, self.num_edges + 1):
 			for row in range(self.num_cell_x):
 				for col in range(self.num_cell_y):
 					cell_num = row*self.num_cell_y + col
 					# print(square)
 					if self.__square_list[row][col].is_edge(edge):
-						print('!!!')
 						if edge not in edge_dict.keys():
 							edge_dict[edge] = [self.__square_list[row][col].index]
 						else:
@@ -361,7 +367,7 @@ class Mesh():
 		truncate_edge_to_cell = []
 		for edge in range(1, self.num_edges + 1):
 			truncate_edge_to_cell.append(edge_dict[edge])
-		print(truncate_edge_to_cell)
+		# print(truncate_edge_to_cell)
 
 		# rename for clarity
 		edge_to_cell_full = edge_to_cell
@@ -381,9 +387,45 @@ class Mesh():
 				node_position.append((x_cord, y_cord, 0.0))
 
 		# then detect and delete void squares
-		print(node_position)
+		for nd in xrange(0, len(node_position)):
+			if nd+1 in self.node_to_delete:
+				node_position[nd] = [-1, -1, -1]
+			pass
+		# print(node_position)
 				
 		return node_position
+
+	def PCTED(self):
+		''' construct pcted list'''
+		pcted = []
+		for cell in self.cell_to_edge:
+			# print(cell)
+			if cell[0] != 0:
+				pcted.append(cell)
+		# print(pcted)
+		return pcted 
+
+	def PETCD(self):
+		''' construct petcd list'''
+		return self.edge_to_cell
+
+	def PCTND(self):
+		''' construct pctnd list'''
+		pctnd = []
+		for cell in self.cell_to_node:
+			if cell[0] != 0:
+				pctnd.append(cell)
+		return pctnd
+
+	def NODELIST(self):
+		''' construct the node list'''
+		node_list = []
+		for cell in self.node_position_list:
+			if cell[0] != -1:
+				node_list.append(cell)
+		return node_list
+
+
 				
 	def printMesh(self):
 		''' print the mesh in the terminal'''
@@ -396,10 +438,17 @@ class Mesh():
 					print('+'),
 				else:
 					print('-'),
+		print('\n')
 
 if __name__ == "__main__":
 	void_list = [[0,1,1], [1,0,0], [1,1,1]]
 	mesh = Mesh(void_list, 1, 1)
 	mesh.printMesh()
+	print((mesh.num_cells, mesh.num_edges, mesh.num_nodes))
+	print(mesh.pctnd)
+	print(mesh.pcted)
+	print(mesh.petcd)
+	print(mesh.node_list)
+
 
 
